@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NFC Link Writer</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 60px auto;
+      padding: 20px;
+      text-align: center;
+    }
+
+    input {
+      width: 90%;
+      padding: 12px;
+      font-size: 16px;
+      margin: 20px 0;
+    }
+
+    button {
+      padding: 12px 25px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #status {
+      margin-top: 25px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>NFC Link Writer</h1>
+
+  <p>Enter the link you want stored on your NFC card.</p>
+
+  <input
+    id="urlInput"
+    type="url"
+    placeholder="https://www.linkedin.com/in/your-profile"
+  >
+
+  <br>
+
+  <button onclick="writeNFC()">
+    Write to NFC
+  </button>
+
+  <div id="status">
+    Connecting to NFC Bridge...
+  </div>
+
+<script>
+
+let ws;
+
+function connectBridge() {
+
+  ws = new WebSocket("ws://localhost:9876");
+
+  ws.onopen = function() {
+    document.getElementById("status").innerText =
+      "✓ NFC Bridge Connected";
+  };
+
+  ws.onclose = function() {
+    document.getElementById("status").innerText =
+      "✗ NFC Bridge Not Connected";
+  };
+
+  ws.onerror = function() {
+    document.getElementById("status").innerText =
+      "✗ Cannot connect to NFC Bridge";
+  };
+
+  ws.onmessage = function(event) {
+
+    console.log("Bridge:", event.data);
+
+    try {
+
+      const message = JSON.parse(event.data);
+
+      if (message.type === "write_pending") {
+
+        document.getElementById("status").innerText =
+          "Place your NFC card on the reader...";
+
+      }
+
+      else if (message.type === "write_result") {
+
+        if (message.success) {
+
+          document.getElementById("status").innerText =
+            "✓ NFC card programmed successfully!";
+
+        } else {
+
+          document.getElementById("status").innerText =
+            "✗ Writing failed. Try again.";
+
+        }
+      }
+
+    } catch (error) {
+
+      console.log("Message:", event.data);
+
+    }
+  };
+}
+
+
+function writeNFC() {
+
+  const url =
+    document.getElementById("urlInput").value.trim();
+
+  if (!url) {
+
+    document.getElementById("status").innerText =
+      "Please enter a URL first.";
+
+    return;
+  }
+
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+
+    document.getElementById("status").innerText =
+      "NFC Bridge is not connected.";
+
+    return;
+  }
+
+  document.getElementById("status").innerText =
+    "Waiting for NFC card...";
+
+  ws.send(JSON.stringify({
+    action: "write",
+    badge_url: url
+  }));
+}
+
+
+connectBridge();
+
+</script>
+
+</body>
+</html>
